@@ -1,0 +1,21 @@
+#:schema https://schemas.spinframework.dev/spin/manifest-v2/latest.json
+
+spin_manifest_version = 2
+
+[application]
+name = "image-filter-playground"
+version = "0.1.0"
+description = "Bounded image filter playground (Grayscale, Pixelate, Edge Detection)"
+
+[[trigger.http]]
+route = "/..."
+component = "transform"
+
+[component.transform]
+source = "main.wasm"
+allowed_outbound_hosts = []
+
+[component.transform.build]
+# Let componentize-go select its async-capable Go without an inherited GOROOT.
+command = "env -u GOROOT go tool componentize-go build"
+watch = ["**/*.go", "internal/transform/index.html", "go.mod", "go.sum"]

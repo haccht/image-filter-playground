@@ -1,0 +1,46 @@
+{
+  "progressive-1024x1024-420.jpg": {
+    "bytes": 857995,
+    "sha256": "e016a7f5cc4230d68ccdea225612656d129611b6b3eb59aeaedbdedb3678e288"
+  },
+  "progressive-1024x1024-444.jpg": {
+    "bytes": 1730516,
+    "sha256": "601429d2845dcf1ded1b328d16ab03a6c99814c47b6c771c9b1ca46846c32321"
+  },
+  "progressive-257x129-420.jpg": {
+    "bytes": 28802,
+    "sha256": "35956f11f233fc357baa9909d504707424c8334073c2c9cf3c5ff3378cae9efc"
+  },
+  "progressive-1x1-420.jpg": {
+    "bytes": 521,
+    "sha256": "15a9d85deb7d1618d2b8cc73c30ac033bd02cdedec0c87690911a38ae3b314b8"
+  },
+  "progressive-512x512-444.jpg": {
+    "bytes": 432960,
+    "sha256": "b5587959d54e3d5cd1dd012258cf932a1200f712bd6c70c36c510fce3c71c8c9"
+  },
+  "adam7-rgba16-1024x1024.png": {
+    "bytes": 32427,
+    "sha256": "dc34cbfc5b86fc6ced187e189740659e398db331ef004b6cb7cc1404bb714d5c"
+  },
+  "adam7-rgba16-513x257.png": {
+    "bytes": 5876,
+    "sha256": "c6effc66278549bb63745c7977b764ad2f3d3767253c7f36877ff592dbcfff03"
+  },
+  "adam7-rgba16-1x1.png": {
+    "bytes": 74,
+    "sha256": "717415ce341b595f7f0efea52918d4dd45c73ef1e1a1f7d638af38949a4009d6"
+  },
+  "adam7-rgba8-1024x1024.png": {
+    "bytes": 15041,
+    "sha256": "1721bae4f65918af2843bfba684aa894881e3c7b9a38a1e38eefe8261d9936e5"
+  },
+  "adam7-rgba16-512x512.png": {
+    "bytes": 10078,
+    "sha256": "64028c444f2c8a3a3e9559ca724a68a62796d83b785fc1b66055b6b2679c323e"
+  },
+  "adam7-rgba8-512x512.png": {
+    "bytes": 4762,
+    "sha256": "05c363e982cab7a36d41a96fb142a24dd2c73c4afd631054771e349f85d5328d"
+  }
+}

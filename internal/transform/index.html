@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Image Filter Playground — Akamai Functions</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --error-bg: #450a0a;
+      --error-border: #dc2626;
+      --error-text: #fecaca;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 1.5rem;
+    }
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+    header {
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1rem;
+    }
+    h1 {
+      margin: 0 0 0.25rem 0;
+      font-size: 1.5rem;
+    }
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .controls-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      display: grid;
+      gap: 1rem;
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+    }
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 0.5rem;
+      padding: 1.25rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .dropzone.dragover, .dropzone:hover {
+      border-color: var(--accent);
+    }
+    .dropzone input[type="file"] {
+      display: none;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      min-width: 180px;
+    }
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    select, input[type="number"], button, .btn-download {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 0.375rem;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.95rem;
+    }
+    input[type="range"] {
+      accent-color: var(--accent);
+      width: 160px;
+    }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--text);
+      cursor: pointer;
+      user-select: none;
+    }
+    button.primary, .btn-download {
+      background: var(--accent);
+      color: #0f172a;
+      border-color: var(--accent);
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    button.primary:hover:not(:disabled), .btn-download:hover {
+      background: var(--accent-hover);
+      color: #fff;
+    }
+    button.primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .hidden {
+      display: none !important;
+    }
+    .error-banner {
+      background: var(--error-bg);
+      border: 1px solid var(--error-border);
+      color: var(--error-text);
+      padding: 0.75rem 1rem;
+      border-radius: 0.375rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+    }
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+    .preview-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
+    }
+    .preview-title {
+      font-weight: 600;
+      font-size: 1rem;
+    }
+    .meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .canvas-box {
+      background: #090d16;
+      border: 1px solid var(--border);
+      border-radius: 0.375rem;
+      min-height: 260px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      padding: 0.5rem;
+    }
+    .canvas-box img {
+      max-width: 100%;
+      max-height: 480px;
+      object-fit: contain;
+      display: block;
+    }
+    .placeholder {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Image Filter Playground</h1>
+      <p class="subtitle">Go + WebAssembly (Spin / Akamai Functions) — Bounded JPEG &amp; PNG Processing (Max 2 MiB, 1024px Output)</p>
+    </header>
+
+    <div class="controls-card">
+      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Select or drop a JPEG or PNG image">
+        <input id="file-input" type="file" accept="image/jpeg,image/png">
+        <div id="dropzone-text">Click to choose a JPEG or PNG image, or drag and drop it here</div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="filter-select">Filter</label>
+          <select id="filter-select">
+            <option value="grayscale">Grayscale</option>
+            <option value="pixelate">Pixelate</option>
+            <option value="edge">Edge Detection (Sobel)</option>
+          </select>
+        </div>
+
+        <div id="block-size-group" class="field hidden">
+          <label for="block-size-range">Block Size: <span id="block-size-val">16</span> px (2–128)</label>
+          <div class="row">
+            <input id="block-size-range" type="range" min="2" max="128" value="16">
+            <input id="block-size-num" type="number" min="2" max="128" value="16" style="width: 72px;">
+          </div>
+        </div>
+
+        <div id="roughness-group" class="field hidden">
+          <label for="roughness-range">Roughness: <span id="roughness-val">2</span> (0–4)</label>
+          <div class="row">
+            <input id="roughness-range" type="range" min="0" max="4" value="2">
+            <input id="roughness-num" type="number" min="0" max="4" value="2" style="width: 64px;">
+          </div>
+        </div>
+
+        <div class="field" style="justify-content: flex-end;">
+          <label class="checkbox-label">
+            <input id="client-resize" type="checkbox" checked>
+            Pre-scale oversized images (&gt;1024px or &gt;2 MiB) in browser
+          </label>
+        </div>
+
+        <div style="margin-left: auto; display: flex; gap: 0.75rem; align-items: center;">
+          <button id="apply-btn" class="primary" type="button" disabled>Apply Filter</button>
+          <a id="download-btn" class="btn-download hidden" download="grayscale.jpg">Download JPEG</a>
+        </div>
+      </div>
+    </div>
+
+    <div id="error-box" class="error-banner hidden" role="alert"></div>
+
+    <div class="preview-grid">
+      <div class="preview-card">
+        <div class="preview-header">
+          <span class="preview-title">Source Image</span>
+          <span id="source-meta" class="meta">No file selected</span>
+        </div>
+        <div class="canvas-box">
+          <span id="source-placeholder" class="placeholder">Select an image to preview</span>
+          <img id="source-img" class="hidden" alt="Source preview">
+        </div>
+      </div>
+
+      <div class="preview-card">
+        <div class="preview-header">
+          <span class="preview-title">Processed Output (JPEG)</span>
+          <span id="output-meta" class="meta">Waiting for transformation</span>
+        </div>
+        <div class="canvas-box">
+          <span id="output-placeholder" class="placeholder">Filtered result will appear here</span>
+          <img id="output-img" class="hidden" alt="Processed output preview">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const MAX_BYTES = 2 * 1024 * 1024;
+      const MAX_DIM = 1024;
+
+      const dropzone = document.getElementById('dropzone');
+      const dropzoneText = document.getElementById('dropzone-text');
+      const fileInput = document.getElementById('file-input');
+      const filterSelect = document.getElementById('filter-select');
+      const blockSizeGroup = document.getElementById('block-size-group');
+      const blockSizeRange = document.getElementById('block-size-range');
+      const blockSizeNum = document.getElementById('block-size-num');
+      const blockSizeVal = document.getElementById('block-size-val');
+      const roughnessGroup = document.getElementById('roughness-group');
+      const roughnessRange = document.getElementById('roughness-range');
+      const roughnessNum = document.getElementById('roughness-num');
+      const roughnessVal = document.getElementById('roughness-val');
+      const clientResize = document.getElementById('client-resize');
+      const applyBtn = document.getElementById('apply-btn');
+      const downloadBtn = document.getElementById('download-btn');
+      const errorBox = document.getElementById('error-box');
+      const sourceImg = document.getElementById('source-img');
+      const sourcePlaceholder = document.getElementById('source-placeholder');
+      const sourceMeta = document.getElementById('source-meta');
+      const outputImg = document.getElementById('output-img');
+      const outputPlaceholder = document.getElementById('output-placeholder');
+      const outputMeta = document.getElementById('output-meta');
+
+      let selectedFile = null;
+      let sourceObjectURL = null;
+      let outputObjectURL = null;
+
+      function formatBytes(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KiB';
+        return (bytes / (1024 * 1024)).toFixed(2) + ' MiB';
+      }
+
+      function showError(msg) {
+        if (!msg) {
+          errorBox.textContent = '';
+          errorBox.classList.add('hidden');
+          return;
+        }
+        errorBox.textContent = msg;
+        errorBox.classList.remove('hidden');
+      }
+
+      function updateFilterControls() {
+        const filter = filterSelect.value;
+        blockSizeGroup.classList.toggle('hidden', filter !== 'pixelate');
+        roughnessGroup.classList.toggle('hidden', filter !== 'edge');
+      }
+
+      filterSelect.addEventListener('change', updateFilterControls);
+
+      blockSizeRange.addEventListener('input', function () {
+        blockSizeNum.value = blockSizeRange.value;
+        blockSizeVal.textContent = blockSizeRange.value;
+      });
+      blockSizeNum.addEventListener('input', function () {
+        blockSizeRange.value = blockSizeNum.value;
+        blockSizeVal.textContent = blockSizeNum.value;
+      });
+
+      roughnessRange.addEventListener('input', function () {
+        roughnessNum.value = roughnessRange.value;
+        roughnessVal.textContent = roughnessRange.value;
+      });
+      roughnessNum.addEventListener('input', function () {
+        roughnessRange.value = roughnessNum.value;
+        roughnessVal.textContent = roughnessNum.value;
+      });
+
+      dropzone.addEventListener('click', function () { fileInput.click(); });
+      dropzone.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          fileInput.click();
+        }
+      });
+      dropzone.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+      dropzone.addEventListener('dragleave', function () {
+        dropzone.classList.remove('dragover');
+      });
+      dropzone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          handleFile(e.dataTransfer.files[0]);
+        }
+      });
+      fileInput.addEventListener('change', function () {
+        if (fileInput.files && fileInput.files.length > 0) {
+          handleFile(fileInput.files[0]);
+        }
+      });
+
+      function handleFile(file) {
+        showError('');
+        selectedFile = file;
+        applyBtn.disabled = false;
+        dropzoneText.textContent = file.name + ' (' + formatBytes(file.size) + ')';
+
+        if (sourceObjectURL) URL.revokeObjectURL(sourceObjectURL);
+        sourceObjectURL = URL.createObjectURL(file);
+        sourceImg.onload = function () {
+          sourceMeta.textContent = sourceImg.naturalWidth + '×' + sourceImg.naturalHeight + ' px · ' + formatBytes(file.size);
+          sourcePlaceholder.classList.add('hidden');
+          sourceImg.classList.remove('hidden');
+        };
+        sourceImg.onerror = function () {
+          sourceMeta.textContent = formatBytes(file.size);
+          sourceImg.classList.add('hidden');
+          sourcePlaceholder.textContent = 'Preview unavailable for this file';
+          sourcePlaceholder.classList.remove('hidden');
+        };
+        sourceImg.src = sourceObjectURL;
+      }
+
+      async function preparePayload(file) {
+        if (!clientResize.checked) {
+          return file;
+        }
+        const w = sourceImg.naturalWidth;
+        const h = sourceImg.naturalHeight;
+        if (!w || !h || (w <= MAX_DIM && h <= MAX_DIM && file.size <= MAX_BYTES)) {
+          return file;
+        }
+        let dw = w;
+        let dh = h;
+        if (w > MAX_DIM || h > MAX_DIM) {
+          if (w >= h) {
+            dw = MAX_DIM;
+            dh = Math.max(1, Math.floor((h * MAX_DIM) / w));
+          } else {
+            dw = Math.max(1, Math.floor((w * MAX_DIM) / h));
+            dh = MAX_DIM;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = dw;
+        canvas.height = dh;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(sourceImg, 0, 0, dw, dh);
+        const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+        const blob = await new Promise(function (resolve) {
+          canvas.toBlob(resolve, mime, 0.92);
+        });
+        if (blob && blob.size <= MAX_BYTES) {
+          return blob;
+        }
+        return new Promise(function (resolve) {
+          canvas.toBlob(resolve, 'image/jpeg', 0.85);
+        });
+      }
+
+      applyBtn.addEventListener('click', async function () {
+        if (!selectedFile) return;
+        showError('');
+        applyBtn.disabled = true;
+        applyBtn.textContent = 'Processing...';
+
+        try {
+          const payload = await preparePayload(selectedFile);
+          const filter = filterSelect.value;
+          const params = new URLSearchParams({ filter: filter });
+          if (filter === 'pixelate') {
+            params.set('block_size', blockSizeNum.value);
+          } else if (filter === 'edge') {
+            params.set('roughness', roughnessNum.value);
+          }
+
+          const start = performance.now();
+          const resp = await fetch('/api/transform?' + params.toString(), {
+            method: 'POST',
+            headers: { 'Content-Type': payload.type || 'application/octet-stream' },
+            body: payload
+          });
+          const elapsed = (performance.now() - start).toFixed(0);
+
+          if (!resp.ok) {
+            const text = (await resp.text()).trim();
+            showError('HTTP ' + resp.status + ': ' + (text || resp.statusText));
+            return;
+          }
+
+          const blob = await resp.blob();
+          if (outputObjectURL) URL.revokeObjectURL(outputObjectURL);
+          outputObjectURL = URL.createObjectURL(blob);
+          outputImg.onload = function () {
+            outputMeta.textContent = outputImg.naturalWidth + '×' + outputImg.naturalHeight + ' px · ' + formatBytes(blob.size) + ' · ' + elapsed + ' ms';
+            outputPlaceholder.classList.add('hidden');
+            outputImg.classList.remove('hidden');
+          };
+          outputImg.src = outputObjectURL;
+
+          downloadBtn.href = outputObjectURL;
+          downloadBtn.download = filter + '.jpg';
+          downloadBtn.classList.remove('hidden');
+        } catch (err) {
+          showError('Request failed: ' + err.message);
+        } finally {
+          applyBtn.disabled = false;
+          applyBtn.textContent = 'Apply Filter';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
