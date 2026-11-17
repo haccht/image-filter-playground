@@ -170,6 +170,40 @@ func run() error {
 			fmt.Printf("%s: 200, pixelate block %d, native-reference JPEG match, latency %s\n", format, blockSize, elapsed)
 			successes++
 		}
+		for _, tc := range []struct {
+			query                string
+			brushSize, roughness int
+		}{
+			{"?filter=oil", imageproc.DefaultBrushSize, imageproc.DefaultRoughness},
+			{"?filter=oil&brush_size=1&roughness=0", 1, 0},
+			{"?filter=oil&brush_size=6&roughness=4", 6, 4},
+		} {
+			filtered, err := imageproc.OilPaint(decodedInput, tc.brushSize, tc.roughness)
+			if err != nil {
+				return err
+			}
+			reference, err := imageproc.JPEG(filtered)
+			if err != nil {
+				return err
+			}
+			start := time.Now()
+			resp, err := client.Post(base+"/api/transform"+tc.query, "image/"+format, bytes.NewReader(encodedInput))
+			if err != nil {
+				return err
+			}
+			data, err := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			elapsed := time.Since(start)
+			total += elapsed
+			if err != nil {
+				return err
+			}
+			if resp.StatusCode != 200 || resp.Header.Get("Content-Type") != "image/jpeg" || resp.Header.Get("Cache-Control") != "no-store" || resp.Header.Get("Content-Disposition") != `attachment; filename="oil.jpg"` || !bytes.Equal(data, reference) {
+				return fmt.Errorf("%s oil %s: status %d or mismatched output/headers", format, tc.query, resp.StatusCode)
+			}
+			fmt.Printf("%s: 200, oil %s, native-reference JPEG match, latency %s\n", format, tc.query, elapsed)
+			successes++
+		}
 	}
 	wide := image.NewNRGBA(image.Rect(0, 0, 2048, 512))
 	for y := 0; y < 512; y++ {
@@ -185,14 +219,20 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	for _, filter := range []string{"grayscale", "pixelate", "edge"} {
+	for _, filter := range []string{"grayscale", "pixelate", "edge", "oil"} {
 		var expected image.Image
-		if filter == "pixelate" {
+		switch filter {
+		case "pixelate":
 			expected, err = imageproc.Pixelate(resized, imageproc.DefaultBlockSize)
 			if err != nil {
 				return err
 			}
-		} else {
+		case "oil":
+			expected, err = imageproc.OilPaint(resized, imageproc.DefaultBrushSize, imageproc.DefaultRoughness)
+			if err != nil {
+				return err
+			}
+		default:
 			gray := imageproc.Grayscale(resized)
 			expected = gray
 			if filter == "edge" {
@@ -259,6 +299,11 @@ func run() error {
 		{"POST", "/api/transform?filter=pixelate&filter=grayscale", nil, 400},
 		{"POST", "/api/transform?filter=pixelate", pixelateOversized.Bytes()[:33], 413},
 		{"POST", "/api/transform?filter=pixelate", []byte("invalid"), 400},
+		{"POST", "/api/transform?filter=oil&brush_size=0", nil, 400},
+		{"POST", "/api/transform?filter=oil&brush_size=7", nil, 400},
+		{"POST", "/api/transform?filter=oil&roughness=5", nil, 400},
+		{"POST", "/api/transform?filter=oil&block_size=16", nil, 400},
+		{"POST", "/api/transform?filter=edge&brush_size=4", nil, 400},
 	} {
 		req, err := http.NewRequest(tc.method, base+tc.path, bytes.NewReader(tc.data))
 		if err != nil {

@@ -204,8 +204,9 @@
         <div class="field">
           <label for="filter-select">Filter</label>
           <select id="filter-select">
-            <option value="grayscale">Grayscale</option>
+            <option value="oil">Oil Paint</option>
             <option value="pixelate">Pixelate</option>
+            <option value="grayscale">Grayscale</option>
             <option value="edge">Edge Detection (Sobel)</option>
           </select>
         </div>
@@ -218,7 +219,15 @@
           </div>
         </div>
 
-        <div id="roughness-group" class="field hidden">
+        <div id="brush-size-group" class="field">
+          <label for="brush-size-range">Brush Size: <span id="brush-size-val">4</span> px (1–6)</label>
+          <div class="row">
+            <input id="brush-size-range" type="range" min="1" max="6" value="4">
+            <input id="brush-size-num" type="number" min="1" max="6" value="4" style="width: 64px;">
+          </div>
+        </div>
+
+        <div id="roughness-group" class="field">
           <label for="roughness-range">Roughness: <span id="roughness-val">2</span> (0–4)</label>
           <div class="row">
             <input id="roughness-range" type="range" min="0" max="4" value="2">
@@ -235,7 +244,7 @@
 
         <div style="margin-left: auto; display: flex; gap: 0.75rem; align-items: center;">
           <button id="apply-btn" class="primary" type="button" disabled>Apply Filter</button>
-          <a id="download-btn" class="btn-download hidden" download="grayscale.jpg">Download JPEG</a>
+          <a id="download-btn" class="btn-download hidden" download="oil.jpg">Download JPEG</a>
         </div>
       </div>
     </div>
@@ -280,6 +289,10 @@
       const blockSizeRange = document.getElementById('block-size-range');
       const blockSizeNum = document.getElementById('block-size-num');
       const blockSizeVal = document.getElementById('block-size-val');
+      const brushSizeGroup = document.getElementById('brush-size-group');
+      const brushSizeRange = document.getElementById('brush-size-range');
+      const brushSizeNum = document.getElementById('brush-size-num');
+      const brushSizeVal = document.getElementById('brush-size-val');
       const roughnessGroup = document.getElementById('roughness-group');
       const roughnessRange = document.getElementById('roughness-range');
       const roughnessNum = document.getElementById('roughness-num');
@@ -318,10 +331,12 @@
       function updateFilterControls() {
         const filter = filterSelect.value;
         blockSizeGroup.classList.toggle('hidden', filter !== 'pixelate');
-        roughnessGroup.classList.toggle('hidden', filter !== 'edge');
+        brushSizeGroup.classList.toggle('hidden', filter !== 'oil');
+        roughnessGroup.classList.toggle('hidden', filter !== 'edge' && filter !== 'oil');
       }
 
       filterSelect.addEventListener('change', updateFilterControls);
+      updateFilterControls();
 
       blockSizeRange.addEventListener('input', function () {
         blockSizeNum.value = blockSizeRange.value;
@@ -330,6 +345,15 @@
       blockSizeNum.addEventListener('input', function () {
         blockSizeRange.value = blockSizeNum.value;
         blockSizeVal.textContent = blockSizeNum.value;
+      });
+
+      brushSizeRange.addEventListener('input', function () {
+        brushSizeNum.value = brushSizeRange.value;
+        brushSizeVal.textContent = brushSizeRange.value;
+      });
+      brushSizeNum.addEventListener('input', function () {
+        brushSizeRange.value = brushSizeNum.value;
+        brushSizeVal.textContent = brushSizeNum.value;
       });
 
       roughnessRange.addEventListener('input', function () {
@@ -440,6 +464,9 @@
           if (filter === 'pixelate') {
             params.set('block_size', blockSizeNum.value);
           } else if (filter === 'edge') {
+            params.set('roughness', roughnessNum.value);
+          } else if (filter === 'oil') {
+            params.set('brush_size', brushSizeNum.value);
             params.set('roughness', roughnessNum.value);
           }
 

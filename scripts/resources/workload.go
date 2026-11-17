@@ -20,6 +20,8 @@ type settings struct {
 	idle                                string
 	blockSize                           int
 	edge                                bool
+	oil                                 bool
+	brushSize                           int
 	roughness                           int
 }
 
@@ -81,7 +83,7 @@ func workloads(cases []fixture, repeats int, mode string, blockSize int) []workl
 	return result
 }
 
-func referenceHashes(cases []fixture, blockSize int, edge bool, roughness int) (map[string][32]byte, error) {
+func referenceHashes(cases []fixture, cfg settings) (map[string][32]byte, error) {
 	result := make(map[string][32]byte)
 	for _, f := range cases {
 		if f.status != 200 {
@@ -92,16 +94,21 @@ func referenceHashes(cases []fixture, blockSize int, edge bool, roughness int) (
 			return nil, err
 		}
 		var filtered image.Image
-		if blockSize != 0 {
-			filtered, err = imageproc.Pixelate(img, blockSize)
+		if cfg.blockSize != 0 {
+			filtered, err = imageproc.Pixelate(img, cfg.blockSize)
+			if err != nil {
+				return nil, err
+			}
+		} else if cfg.oil {
+			filtered, err = imageproc.OilPaint(img, cfg.brushSize, cfg.roughness)
 			if err != nil {
 				return nil, err
 			}
 		} else {
 			gray := imageproc.Grayscale(img)
 			filtered = gray
-			if edge {
-				filtered, err = imageproc.EdgeDetectionWithRoughness(gray, roughness)
+			if cfg.edge {
+				filtered, err = imageproc.EdgeDetectionWithRoughness(gray, cfg.roughness)
 				if err != nil {
 					return nil, err
 				}

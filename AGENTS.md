@@ -39,7 +39,7 @@ Initial limits:
 - Maximum uploaded file size: 2 MiB (with a 4 MiB conservative decode allocation budget).
 - Supported input formats: JPEG and PNG.
 - Output format: JPEG (quality 85).
-- Supported filters: Grayscale (`grayscale`), Pixelate (`pixelate`, `block_size=2..128`), and Sobel Edge Detection (`edge`, `roughness=0..4`).
+- Supported filters: Grayscale (`grayscale`), Pixelate (`pixelate`, `block_size=2..128`), Sobel Edge Detection (`edge`, `roughness=0..4`), and Oil Paint (`oil`, `brush_size=1..6`, `roughness=0..4`).
 - No external AI inference.
 - No persistent image storage.
 

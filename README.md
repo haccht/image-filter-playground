@@ -2,13 +2,13 @@
 
 A lightweight Go WebAssembly HTTP application for **Akamai Functions / Spin 4**.
 
-It provides an embedded single-page Vanilla HTML/CSS/JS Playground UI (`GET /`) and a stateless image transformation API (`POST /api/transform`) supporting **Grayscale**, **Pixelate**, and **Edge Detection (Sobel)** filters with strict memory and input bounds. No persistent storage, external AI services, or outbound network access are used.
+It provides an embedded single-page Vanilla HTML/CSS/JS Playground UI (`GET /`) and a stateless image transformation API (`POST /api/transform`) supporting **Grayscale**, **Pixelate**, **Edge Detection (Sobel)**, and **Oil Paint** filters with strict memory and input bounds. No persistent storage, external AI services, or outbound network access are used.
 
 See [Architecture](docs/architecture.md) for component boundaries and image processing design, [Component Memory Policy](docs/memory-policy.md) for WASIp3 reuse and memory controls, and [Toolchain Notes](docs/toolchain.md) for Spin 4 / Go SDK v4 build requirements.
 
 ## Web UI & HTTP API
 
-- **`GET /`**: Serves the embedded Vanilla HTML/CSS/JS Playground UI for selecting or dragging-and-dropping JPEG/PNG images, configuring filter parameters (`block_size`, `roughness`), optionally pre-scaling oversized images in the browser, previewing side-by-side results, and downloading the processed JPEG.
+- **`GET /`**: Serves the embedded Vanilla HTML/CSS/JS Playground UI for selecting or dragging-and-dropping JPEG/PNG images, configuring filter parameters (`block_size`, `brush_size`, `roughness`), optionally pre-scaling oversized images in the browser, previewing side-by-side results, and downloading the processed JPEG.
 - **`POST /api/transform`**: Accepts the raw bytes of a JPEG or PNG image (`--data-binary`, not multipart form data). The actual encoded format is validated independently of the request `Content-Type`.
 
 ### Input & Processing Limits
@@ -34,11 +34,12 @@ See [Architecture](docs/architecture.md) for component boundaries and image proc
 
 | Query parameter | Allowed values | Default | Description |
 | --- | --- | --- | --- |
-| `filter` | `grayscale`, `pixelate`, `edge` | `grayscale` | Selects the visual filter |
+| `filter` | `grayscale`, `pixelate`, `edge`, `oil` | `grayscale` | Selects the visual filter |
 | `block_size` | Integer `2`–`128` (`filter=pixelate` only) | `16` | Mosaic block size in output pixels |
-| `roughness` | Integer `0`–`4` (`filter=edge` only) | `2` | Pre-Sobel box smoothing radius (`2 * roughness`) |
+| `brush_size` | Integer `1`–`6` (`filter=oil` only) | `4` | Oil brush neighborhood radius in output pixels (`(2 * brush_size + 1)` square window) |
+| `roughness` | Integer `0`–`4` (`filter=edge` or `filter=oil`) | `2` | Pre-Sobel box smoothing radius (`2 * roughness`) for `edge`, or luminance quantization coarseness (`32, 24, 16, 12, 8` histogram bins) for `oil` |
 
-Unknown parameters, duplicate parameters, malformed queries, and out-of-range values return `400 Bad Request` before reading the request body. Download filenames are set to `grayscale.jpg`, `pixelate.jpg`, or `edge.jpg`.
+Unknown parameters, duplicate parameters, malformed queries, and out-of-range values return `400 Bad Request` before reading the request body. Download filenames are set to `grayscale.jpg`, `pixelate.jpg`, `edge.jpg`, or `oil.jpg`.
 
 ## Local Build & Execution
 
@@ -73,7 +74,13 @@ curl --fail-with-body --data-binary @input.jpg \
   'http://127.0.0.1:3000/api/transform?filter=edge&roughness=2' \
   --output edge.jpg
 
-# Automated 42-request HTTP smoke test
+# Oil Paint (luminance histogram mode with brush radius 4 and roughness 2)
+curl --fail-with-body --data-binary @input.jpg \
+  -H 'Content-Type: image/jpeg' \
+  'http://127.0.0.1:3000/api/transform?filter=oil&brush_size=4&roughness=2' \
+  --output oil.jpg
+
+# Automated 54-request HTTP smoke test
 go run scripts/smoke.go http://127.0.0.1:3000
 ```
 
@@ -86,7 +93,8 @@ spin build
 mkdir -p .cache
 go run ./scripts/resources -memory-mib 20 -repeats 3 > .cache/isolated-20mib.json
 go run ./scripts/resources -edge -roughness 4 -mode reuse -memory-mib 20 -repeats 5 > .cache/reuse-20mib.json
-go run ./scripts/resources -edge -roughness 4 -mode concurrent -concurrency 16 -memory-mib 20 -repeats 3 > .cache/concurrent-20mib.json
+go run ./scripts/resources -oil -brush-size 6 -roughness 0 -mode reuse -memory-mib 20 -repeats 5 > .cache/oil-reuse-20mib.json
+go run ./scripts/resources -oil -brush-size 6 -roughness 0 -mode concurrent -concurrency 16 -memory-mib 20 -repeats 3 > .cache/oil-concurrent-20mib.json
 ```
 
 See [Component Memory Policy](docs/memory-policy.md) for the memory design (Component Model backpressure, nonblocking admission gate, exclusive 2 MiB + 1 B input scratch buffer, and 8 MiB soft GC target).

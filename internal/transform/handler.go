@@ -97,6 +97,8 @@ func applyFilter(data []byte, opts options) (image.Image, error) {
 		return imageproc.PreparePixelate(data, opts.blockSize)
 	case filterEdge:
 		return imageproc.PrepareEdgeWithRoughness(data, opts.roughness)
+	case filterOil:
+		return imageproc.PrepareOil(data, opts.brushSize, opts.roughness)
 	default:
 		return imageproc.PrepareGrayscale(data)
 	}

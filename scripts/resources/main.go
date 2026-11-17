@@ -90,6 +90,8 @@ type observation struct {
 type report struct {
 	Roughness           int           `json:"roughness,omitempty"`
 	Edge                bool          `json:"edge,omitempty"`
+	Oil                 bool          `json:"oil,omitempty"`
+	OilBrushSize        int           `json:"oil_brush_size,omitempty"`
 	PixelateBlockSize   int           `json:"pixelate_block_size,omitempty"`
 	Mode                string        `json:"mode"`
 	ClientConcurrency   int           `json:"client_concurrency"`
@@ -184,6 +186,8 @@ func measure(work workload, references map[string][32]byte, memoryMiB int, addre
 	url := "http://" + address + "/api/transform"
 	if cfg.edge {
 		url += fmt.Sprintf("?filter=edge&roughness=%d", cfg.roughness)
+	} else if cfg.oil {
+		url += fmt.Sprintf("?filter=oil&brush_size=%d&roughness=%d", cfg.brushSize, cfg.roughness)
 	} else if cfg.blockSize != 0 {
 		url += fmt.Sprintf("?filter=pixelate&block_size=%d", cfg.blockSize)
 	}
@@ -227,8 +231,10 @@ func run() error {
 	memory := flag.Int("memory-mib", 0, "Spin per-instance memory cap in MiB (0 = no cap)")
 	address := flag.String("listen", "127.0.0.1:3000", "Spin loopback listen address")
 	blockSize := flag.Int("pixelate-block", 0, "pixelate block size, 2–128 (0 = grayscale)")
-	roughness := flag.Int("roughness", 0, "edge smoothing level, 0–4 (requires -edge)")
+	roughness := flag.Int("roughness", 0, "edge/oil smoothing or coarseness level, 0–4 (requires -edge or -oil)")
 	edge := flag.Bool("edge", false, "measure Sobel edge detection instead of grayscale")
+	oil := flag.Bool("oil", false, "measure oil paint filter instead of grayscale")
+	brushSize := flag.Int("brush-size", 0, "oil brush size, 1–6 (requires -oil; default 4)")
 	fixtureName := flag.String("fixture", "", "run only the named fixture (empty = all)")
 	flag.Parse()
 	cfg, err := configuration(*mode, *concurrency)
@@ -240,12 +246,23 @@ func run() error {
 	}
 	cfg.blockSize = *blockSize
 	cfg.edge = *edge
+	cfg.oil = *oil
 	cfg.roughness = *roughness
-	if cfg.roughness < 0 || cfg.roughness > imageproc.MaxRoughness || (cfg.roughness != 0 && !cfg.edge) {
-		return fmt.Errorf("roughness must be 0–4 and requires -edge")
+	cfg.brushSize = *brushSize
+	if cfg.oil && cfg.brushSize == 0 {
+		cfg.brushSize = imageproc.DefaultBrushSize
 	}
-	if cfg.edge && cfg.blockSize != 0 {
-		return fmt.Errorf("edge and pixelate-block are mutually exclusive")
+	if !cfg.oil && *brushSize != 0 {
+		return fmt.Errorf("brush-size requires -oil")
+	}
+	if cfg.oil && (cfg.brushSize < imageproc.MinBrushSize || cfg.brushSize > imageproc.MaxBrushSize) {
+		return imageproc.ErrBrushSize
+	}
+	if cfg.roughness < 0 || cfg.roughness > imageproc.MaxRoughness || (cfg.roughness != 0 && !cfg.edge && !cfg.oil) {
+		return fmt.Errorf("roughness must be 0–4 and requires -edge or -oil")
+	}
+	if (cfg.edge && cfg.blockSize != 0) || (cfg.oil && cfg.blockSize != 0) || (cfg.edge && cfg.oil) {
+		return fmt.Errorf("edge, oil, and pixelate-block are mutually exclusive")
 	}
 	host, _, err := net.SplitHostPort(*address)
 	if err != nil || host != "127.0.0.1" || *repeats < 1 || *repeats > 20 || *memory < 0 || *memory > 1024 {
@@ -289,7 +306,7 @@ func run() error {
 			cases[i].status = http.StatusBadRequest
 		}
 	}
-	references, err := referenceHashes(cases, cfg.blockSize, cfg.edge, cfg.roughness)
+	references, err := referenceHashes(cases, cfg)
 	if err != nil {
 		return err
 	}
@@ -298,6 +315,8 @@ func run() error {
 	failed := false
 	rep.PixelateBlockSize = cfg.blockSize
 	rep.Edge = cfg.edge
+	rep.Oil = cfg.oil
+	rep.OilBrushSize = cfg.brushSize
 	rep.Roughness = cfg.roughness
 	for _, work := range workloads(cases, *repeats, cfg.mode, cfg.blockSize) {
 		obs := measure(work, references, *memory, *address, cfg)

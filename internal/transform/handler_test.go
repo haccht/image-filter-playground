@@ -144,8 +144,18 @@ func TestServeUI(t *testing.T) {
 		if got := w.Header().Get("Content-Security-Policy"); got == "" {
 			t.Fatalf("%s /: missing Content-Security-Policy", method)
 		}
-		if method == "GET" && !bytes.Contains(w.Body.Bytes(), []byte("Image Filter Playground")) {
-			t.Fatal("GET /: missing UI body")
+		if method == "GET" {
+			body := w.Body.Bytes()
+			if !bytes.Contains(body, []byte("Image Filter Playground")) {
+				t.Fatal("GET /: missing UI body")
+			}
+			iOil := bytes.Index(body, []byte(`<option value="oil">Oil Paint</option>`))
+			iPix := bytes.Index(body, []byte(`<option value="pixelate">Pixelate</option>`))
+			iGray := bytes.Index(body, []byte(`<option value="grayscale">Grayscale</option>`))
+			iEdge := bytes.Index(body, []byte(`<option value="edge">Edge Detection (Sobel)</option>`))
+			if iOil < 0 || !(iOil < iPix && iPix < iGray && iGray < iEdge) {
+				t.Fatalf("GET /: unexpected filter option order: oil=%d pixelate=%d grayscale=%d edge=%d", iOil, iPix, iGray, iEdge)
+			}
 		}
 		if method == "HEAD" && w.Body.Len() != 0 {
 			t.Fatalf("HEAD /: unexpected body length %d", w.Body.Len())

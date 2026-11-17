@@ -17,7 +17,12 @@ To keep linear memory bounded and predictable across reused lifetimes, the compo
    - A single `2 MiB + 1 B` buffer is allocated at package initialization and owned exclusively by the admitted request.
    - Avoids repeated geometric `io.ReadAll` slice growth that would fragment the Wasm linear memory heap prior to image decoding.
    - Only the written slice (`data[:used]`) is zero-cleared immediately after decoding/filtering (and on any read error), ensuring uploaded bytes are never retained between requests.
-4. **Soft Go Runtime Memory Limit & Post-Request GC**:
+4. **Unified Single-Buffer Filter Preparation & Post-Request GC**:
+   - All filters share `InspectSource` (`<= 4 MiB` decode budget) and avoid holding duplicate full-size intermediate RGBA buffers:
+     - `GrayscaleToFit` fuses downsampling and luminance conversion into one `*image.Gray` (`<= 1 MiB`).
+     - `PixelateToFit` produces a compact block-color view (`*pixelatedImage`, `<= 1 MiB`).
+     - `PrepareEdgeWithRoughness` reuses the initial `*image.Gray` buffer as the Sobel destination after box smoothing (`<= 2 MiB` total grayscale buffers).
+     - `PrepareOil` reuses the decoded 4-byte-per-pixel slice in place for `*image.RGBA`/`*image.NRGBA` sources (including in-place box-filter downsampling when source dimensions exceed 1024px) and runs the sliding-window luminance histogram filter in place via a `(brush_size + 1)`-row ring buffer (`<= 28 KiB`) and column histograms (`<= 256 KiB`).
    - `main.go` sets `debug.SetMemoryLimit(8 << 20)` (8 MiB soft Go heap target) to leave headroom for Wasm code, stacks, and runtime structures within a 20 MiB instance budget.
    - `defer runtime.GC()` runs when `process()` returns—after intermediate image buffers become unreachable and before the admission gate is released.
 
@@ -30,10 +35,11 @@ spin build
 mkdir -p .cache
 go run ./scripts/resources -memory-mib 20 -repeats 3 > .cache/isolated-20mib.json
 go run ./scripts/resources -edge -roughness 4 -mode reuse -memory-mib 20 -repeats 5 > .cache/reuse-20mib.json
-go run ./scripts/resources -edge -roughness 4 -mode concurrent -concurrency 16 -memory-mib 20 -repeats 3 > .cache/concurrent-20mib.json
+go run ./scripts/resources -oil -brush-size 6 -roughness 0 -mode reuse -memory-mib 20 -repeats 5 > .cache/oil-reuse-20mib.json
+go run ./scripts/resources -oil -brush-size 6 -roughness 0 -mode concurrent -concurrency 16 -memory-mib 20 -repeats 3 > .cache/oil-concurrent-20mib.json
 ```
 
-In local validation on Apple Silicon (macOS arm64, Spin 4.3.0, Go 1.27.4), mixed reuse workloads across all three filters completed with zero unexpected errors and a peak observed component linear memory of **16.5 MiB** under a 20 MiB cap.
+In local validation on Apple Silicon (macOS arm64, Spin 4.3.0, Go 1.27.4), mixed reuse and 16-worker concurrent workloads across all four filters (including `oil` at maximum `brush_size=6`, `roughness=0`) completed with zero unexpected errors and a peak observed component linear memory of **15.0 MiB** in sequential reuse and **18.0 MiB** under 16-client concurrent bursts (within the 20 MiB cap).
 
 ## Official References
 
